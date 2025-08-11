@@ -1,0 +1,157 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String?
+  firstName       String
+  lastName        String
+  profileImageUrl String?
+  bio             String?
+  isCreator       Boolean  @default(false)
+  stripeAccountId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  listings     Listing[]
+  transactions Transaction[]
+  reviews      Review[]
+  payouts      Payout[]
+  downloads    Download[]
+
+  @@map("users")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  listings Listing[]
+
+  @@map("categories")
+}
+
+model Listing {
+  id            String   @id @default(cuid())
+  creatorId     String
+  title         String
+  description   String
+  price         Decimal  @db.Decimal(10, 2)
+  categoryId    String?
+  fileUrl       String
+  fileType      String
+  fileSize      Int?
+  previewUrl    String?
+  tags          String[]
+  isActive      Boolean  @default(true)
+  totalSales    Int      @default(0)
+  averageRating Decimal? @db.Decimal(3, 2)
+  totalReviews  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  creator      User          @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  category     Category?     @relation(fields: [categoryId], references: [id])
+  transactions Transaction[]
+  reviews      Review[]
+  downloads    Download[]
+
+  @@map("listings")
+}
+
+model Transaction {
+  id                    String   @id @default(cuid())
+  buyerId               String
+  listingId             String
+  stripePaymentIntentId String
+  amount                Decimal  @db.Decimal(10, 2)
+  commission            Decimal  @db.Decimal(10, 2)
+  creatorEarnings       Decimal  @db.Decimal(10, 2)
+  status                String   @default("completed")
+  createdAt             DateTime @default(now())
+
+  // Relations
+  buyer    User       @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  listing  Listing    @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  review   Review?
+  download Download[]
+
+  @@map("transactions")
+}
+
+model Review {
+  id            String   @id @default(cuid())
+  transactionId String   @unique
+  buyerId       String
+  listingId     String
+  rating        Int
+  comment       String?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  buyer       User        @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  listing     Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}
+
+model Payout {
+  id               String    @id @default(cuid())
+  creatorId        String
+  stripeTransferId String?
+  amount           Decimal   @db.Decimal(10, 2)
+  status           String    @default("pending")
+  requestedAt      DateTime  @default(now())
+  completedAt      DateTime?
+
+  // Relations
+  creator User @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@map("payouts")
+}
+
+model SearchAnalytics {
+  id               String   @id @default(cuid())
+  userId           String?
+  query            String
+  resultsCount     Int
+  clickedListingId String?
+  createdAt        DateTime @default(now())
+
+  @@map("search_analytics")
+}
+
+model Download {
+  id            String    @id @default(cuid())
+  transactionId String
+  userId        String
+  listingId     String
+  downloadUrl   String
+  expiresAt     DateTime
+  downloadedAt  DateTime?
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing     Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("downloads")
+}
